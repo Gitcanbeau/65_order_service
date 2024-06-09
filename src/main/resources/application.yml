@@ -1,0 +1,31 @@
+server:
+  port: 9094
+
+spring:
+  profiles:
+    active: dev
+  application:
+    name: ORDER-SERVICE
+
+
+##below is old version
+#server:
+#  port: 9094
+#
+#eureka:
+#  client:
+#    service-url:
+#      defaultZone: http://localhost:8761/eureka/
+#
+#spring:
+#  application:
+#    name: ORDER-SERVICE
+#  data:
+#    mongodb:
+#      uri: mongodb://localhost:27017/orderdb
+##      mongodb+srv://natour-database1:database1@cluster0.kt4d4qv.mongodb.net/?retryWrites=true&w=majority
+#      host: localhost
+#      port: 27017
+#      database: orderdb
+#      repositories:
+#        enabled: true
