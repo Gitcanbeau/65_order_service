@@ -23,7 +23,7 @@ spring:
 #  data:
 #    mongodb:
 #      uri: mongodb://localhost:27017/orderdb
-##      mongodb+srv://natour-database1:database1@cluster0.kt4d4qv.mongodb.net/?retryWrites=true&w=majority
+##      uri: mongodb+srv://natour-database1:database1@cluster0.kt4d4qv.mongodb.net/?retryWrites=true&w=majority
 #      host: localhost
 #      port: 27017
 #      database: orderdb
