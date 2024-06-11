@@ -1,51 +1,74 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    DOCKERHUB_CREDENTIALS = credentials('DOCKER_HUB_CREDENTIAL')
-    VERSION = "${env.BUILD_ID}"
-
-  }
-
-  tools {
-    maven "Maven"
-  }
-
-  stages {
-
-    stage('Maven Build'){
-        steps{
-        sh 'mvn clean package  -DskipTests'
-        }
+    environment {
+        VERSION = "${env.BUILD_ID}"
     }
 
-     stage('Run Tests') {
-      steps {
-        sh 'mvn test'
-      }
+    tools {
+        maven "Maven"
     }
 
-    stage('SonarQube Analysis') {
-  steps {
-    sh 'mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent install sonar:sonar -Dsonar.host.url=http://3.101.143.247:9000/ -Dsonar.login=squ_26962e0f1dc3b125ac1425499d89f367089a36af'
-  }
-}
-
-
-   stage('Check code coverage') {
+    stages {
+        stage('Debug Credentials') {
             steps {
                 script {
-                    def token = "squ_26962e0f1dc3b125ac1425499d89f367089a36af"
+                    withCredentials([usernamePassword(credentialsId: 'DOCKER_HUB_CREDENTIAL', passwordVariable: 'DOCKERHUB_CREDENTIALS_PSW', usernameVariable: 'DOCKERHUB_CREDENTIALS_USR')]) {
+                        echo "DockerHub Username: ${DOCKERHUB_CREDENTIALS_USR}"
+                        echo "DockerHub Password: ${DOCKERHUB_CREDENTIALS_PSW}"
+                    }
+                }
+            }
+        }
+
+        stage('Docker Login Test') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'DOCKER_HUB_CREDENTIAL', passwordVariable: 'DOCKERHUB_CREDENTIALS_PSW', usernameVariable: 'DOCKERHUB_CREDENTIALS_USR')]) {
+                        sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                    }
+                }
+            }
+        }
+
+        stage('Maven Build') {
+            steps {
+                script {
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                script {
+                    sh 'mvn test'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    sh 'mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent install sonar:sonar -Dsonar.host.url=http://3.101.143.247:9000/ -Dsonar.login=squ_9999bb1b9c5c9785e3d54af7af20645851dee53d'
+                }
+            }
+        }
+
+        stage('Check code coverage') {
+            steps {
+                script {
+                    def token = "squ_9999bb1b9c5c9785e3d54af7af20645851dee53d"
                     def sonarQubeUrl = "http://3.101.143.247:9000/api"
                     def componentKey = "com.codedecode:order"
                     def coverageThreshold = 0.0
 
-                    def response = sh (
+                    def response = sh(
                         script: "curl -H 'Authorization: Bearer ${token}' '${sonarQubeUrl}/measures/component?component=${componentKey}&metricKeys=coverage'",
                         returnStdout: true
                     ).trim()
 
-                    def coverage = sh (
+                    def coverage = sh(
                         script: "echo '${response}' | jq -r '.component.measures[0].value'",
                         returnStdout: true
                     ).trim().toDouble()
@@ -57,47 +80,60 @@ pipeline {
                     }
                 }
             }
-        } 
+        }
 
-
-      stage('Docker Build and Push') {
-      steps {
-          sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-          sh 'docker build -t canbeaudocker/order-service:${VERSION} .'
-          sh 'docker push canbeaudocker/order-service:${VERSION}'
-      }
-    } 
-
-
-     stage('Cleanup Workspace') {
-      steps {
-        deleteDir()
-       
-      }
-    }
-
-
-
-    stage('Update Image Tag in GitOps') {
-      steps {
-         checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[ credentialsId: 'git-ssh', url: 'git@github.com:Gitcanbeau/67_deployment_service.git']])
-        script {
-       sh '''
-          sed -i "s/image:.*/image: canbeaudocker\\/order-service:${VERSION}/" aws/order-manifest.yml
-        '''
-          sh 'git checkout master'
-          sh 'git add .'
-          sh 'git commit -m "Update image tag"'
-        sshagent(['git-ssh'])
-            {
-                  sh('git push')
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'DOCKER_HUB_CREDENTIAL', passwordVariable: 'DOCKERHUB_CREDENTIALS_PSW', usernameVariable: 'DOCKERHUB_CREDENTIALS_USR')]) {
+                        sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                        sh 'docker build -t canbeaudocker/restaurant-listing-service:${VERSION} .'
+                        sh 'docker push canbeaudocker/restaurant-listing-service:${VERSION}'
+                    }
+                }
             }
         }
-      }
+
+        stage('Cleanup Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
+
+        stage('Update Image Tag in GitOps') {
+            steps {
+                script {
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [],
+                        userRemoteConfigs: [[
+                            url: 'git@github.com:Gitcanbeau/67_deployment_service.git',
+                            credentialsId: 'git-ssh'
+                        ]]
+                    ])
+                    // Update the image tag in the manifest file
+                    sh 'sed -i \'s/image:.*/image: canbeaudocker\\/order:${VERSION}/\' aws/order-manifest.yml'
+                    sh 'git add aws/order-manifest.yml'
+                    sh 'git commit -m "Update image tag to ${VERSION}"'
+
+                    // Use sshagent to push changes
+                    sshagent(credentials: ['git-ssh']) {
+                        sh 'git push origin HEAD:main'
+                    }
+                }
+            }
+        }
     }
 
-  }
-
+    post {
+        always {
+            echo 'Pipeline finished.'
+        }
+        failure {
+            echo 'Pipeline failed.'
+        }
+    }
 }
-
 
