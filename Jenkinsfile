@@ -116,7 +116,7 @@ pipeline {
                     // Update the image tag in the manifest file
                     sh 'sed -i \'s/image:.*/image: canbeaudocker\\/order:${VERSION}/\' aws/order-manifest.yml'
                     sh 'git add aws/order-manifest.yml'
-                    sh 'git commit -m "Update image tag to ${VERSION}"'
+                    sh 'git commit -m "Update image tag to ${VERSION}"|| echo "No changes to commit"'
 
                     // Use sshagent to push changes
                     sshagent(credentials: ['git-ssh']) {
