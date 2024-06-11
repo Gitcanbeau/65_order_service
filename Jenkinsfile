@@ -50,7 +50,7 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    sh 'mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent install sonar:sonar -Dsonar.host.url=http://3.101.143.247:9000/ -Dsonar.login=squ_9999bb1b9c5c9785e3d54af7af20645851dee53d'
+                    sh 'mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent install sonar:sonar -Dsonar.host.url=http://3.101.143.247:9000/ -Dsonar.login=squ_a80c9f4238bcaf5fd5ccee287a41f79fb3b393d2'
                 }
             }
         }
@@ -58,7 +58,7 @@ pipeline {
         stage('Check code coverage') {
             steps {
                 script {
-                    def token = "squ_9999bb1b9c5c9785e3d54af7af20645851dee53d"
+                    def token = "squ_a80c9f4238bcaf5fd5ccee287a41f79fb3b393d2"
                     def sonarQubeUrl = "http://3.101.143.247:9000/api"
                     def componentKey = "com.codedecode:order"
                     def coverageThreshold = 0.0
